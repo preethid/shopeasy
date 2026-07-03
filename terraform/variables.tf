@@ -13,7 +13,7 @@ variable "instance_type" {
 variable "key_name" {
   description = "Name of an existing AWS EC2 key pair for SSH access"
   type        = string
-  default     = "slave2"
+  default     = "aws"
 }
 
 variable "app_port" {
