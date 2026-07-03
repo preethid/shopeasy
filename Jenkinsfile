@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'DOCKERHUB_IMAGE', defaultValue: 'yourdockerhubusername/shopeasy', description: 'Docker Hub repo, e.g. myuser/shopeasy')
-        string(name: 'EC2_HOST', defaultValue: '', description: 'EC2 public IP or DNS, e.g. ec2-1-2-3-4.compute.amazonaws.com')
+        string(name: 'DOCKERHUB_IMAGE', defaultValue: 'devopstrainer/shopeasy', description: 'Docker Hub repo, e.g. myuser/shopeasy')
+        booleanParam(name: 'PROVISION_EC2', defaultValue: true, description: 'Provision the EC2 build/deploy server via Terraform before deploying')
+        string(name: 'EC2_HOST', defaultValue: '', description: 'Existing EC2 public IP/DNS to deploy to. Only used when PROVISION_EC2 is false.')
         string(name: 'APP_PORT', defaultValue: '80', description: 'Host port on EC2 to expose the app on')
     }
 
@@ -11,8 +12,10 @@ pipeline {
         IMAGE_TAG        = "${env.BUILD_NUMBER}"
         FULL_IMAGE       = "${params.DOCKERHUB_IMAGE}:${IMAGE_TAG}"
         LATEST_IMAGE     = "${params.DOCKERHUB_IMAGE}:latest"
-        DOCKERHUB_CREDS  = 'dockerhub'         // Jenkins credential: Docker Hub username/password
+        DOCKERHUB_CREDS  = 'docker-hub'        // Jenkins credential: Docker Hub username/password
         EC2_SSH_CREDS    = 'slave2'            // Jenkins credential: EC2 SSH private key
+        AWS_ACCESS_CRED  = 'AWS_ACCESS_KEY_ID' // Jenkins credential: Secret text
+        AWS_SECRET_CRED  = 'AWS_SECRET_ACCESS_KEY' // Jenkins credential: Secret text
         EC2_USER         = 'ec2-user'
     }
 
@@ -25,6 +28,59 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Provision EC2 (Terraform)') {
+            when { expression { return params.PROVISION_EC2 } }
+            steps {
+                dir('terraform') {
+                    withCredentials([
+                        string(credentialsId: env.AWS_ACCESS_CRED, variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: env.AWS_SECRET_CRED, variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        sh """
+                            terraform init -input=false
+                            terraform apply -auto-approve -input=false -var="app_port=${params.APP_PORT}"
+                        """
+                        script {
+                            env.EC2_HOST = sh(script: 'terraform output -raw public_ip', returnStdout: true).trim()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Resolve Deploy Target') {
+            steps {
+                script {
+                    if (!params.PROVISION_EC2) {
+                        env.EC2_HOST = params.EC2_HOST
+                    }
+                    if (!env.EC2_HOST?.trim()) {
+                        error("No deploy target: enable PROVISION_EC2 or set the EC2_HOST parameter.")
+                    }
+                    echo "Deploy target: ${env.EC2_HOST}"
+                }
+            }
+        }
+
+        stage('Wait for SSH') {
+            steps {
+                sshagent(credentials: [env.EC2_SSH_CREDS]) {
+                    sh """
+                        for i in \$(seq 1 30); do
+                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ${EC2_USER}@${env.EC2_HOST} 'echo ready' 2>/dev/null; then
+                                echo "SSH is up"
+                                exit 0
+                            fi
+                            echo "Waiting for SSH on ${env.EC2_HOST}... (\$i/30)"
+                            sleep 10
+                        done
+                        echo "Timed out waiting for SSH"
+                        exit 1
+                    """
+                }
             }
         }
 
@@ -49,14 +105,9 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                script {
-                    if (!params.EC2_HOST?.trim()) {
-                        error("EC2_HOST parameter is required to deploy.")
-                    }
-                }
                 sshagent(credentials: [env.EC2_SSH_CREDS]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${params.EC2_HOST} '
+                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${env.EC2_HOST} '
                             docker pull ${LATEST_IMAGE} &&
                             docker stop shopeasy || true &&
                             docker rm shopeasy || true &&
@@ -74,7 +125,7 @@ pipeline {
             sh "docker rmi ${FULL_IMAGE} ${LATEST_IMAGE} || true"
         }
         success {
-            echo "Deployed ${LATEST_IMAGE} to http://${params.EC2_HOST}:${params.APP_PORT}"
+            echo "Deployed ${LATEST_IMAGE} to http://${env.EC2_HOST}:${params.APP_PORT}"
         }
         failure {
             echo "Pipeline failed. Check stage logs above."
