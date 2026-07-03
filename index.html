@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShopEasy</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="nav-brand" data-page="home">🛍️ ShopEasy</div>
+    <nav class="nav-links">
+      <button class="nav-btn active" data-page="home">Home</button>
+      <button class="nav-btn" data-page="shop">Shop</button>
+      <button class="nav-btn" data-page="cart">
+        Cart <span id="cart-count" class="badge">0</span>
+      </button>
+      <button class="nav-btn" data-page="checkout">Checkout</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- HOME PAGE -->
+    <section id="home" class="page active">
+      <div class="hero">
+        <h1>Welcome to ShopEasy</h1>
+        <p>Simple shopping, simple prices, simple checkout.</p>
+        <button class="btn primary" data-goto="shop">Start Shopping</button>
+      </div>
+      <div class="categories">
+        <h2>Categories</h2>
+        <div class="category-grid" id="category-grid"></div>
+      </div>
+    </section>
+
+    <!-- SHOP PAGE -->
+    <section id="shop" class="page">
+      <h1>Shop</h1>
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="Search products...">
+        <select id="category-filter">
+          <option value="all">All Categories</option>
+        </select>
+      </div>
+      <div class="product-grid" id="product-grid"></div>
+    </section>
+
+    <!-- CART PAGE -->
+    <section id="cart" class="page">
+      <h1>Your Cart</h1>
+      <div id="cart-items"></div>
+      <div class="cart-summary" id="cart-summary" style="display:none;">
+        <div class="cart-total">Total: <span id="cart-total">$0.00</span></div>
+        <button class="btn primary" data-goto="checkout">Proceed to Checkout</button>
+      </div>
+    </section>
+
+    <!-- CHECKOUT PAGE -->
+    <section id="checkout" class="page">
+      <h1>Checkout</h1>
+      <div id="checkout-content">
+        <div class="checkout-grid">
+          <form id="checkout-form">
+            <h2>Shipping Details</h2>
+            <label>Full Name
+              <input type="text" required id="cf-name">
+            </label>
+            <label>Email
+              <input type="email" required id="cf-email">
+            </label>
+            <label>Address
+              <input type="text" required id="cf-address">
+            </label>
+            <div class="form-row">
+              <label>City
+                <input type="text" required id="cf-city">
+              </label>
+              <label>ZIP Code
+                <input type="text" required id="cf-zip">
+              </label>
+            </div>
+            <button type="submit" class="btn primary">Place Order</button>
+          </form>
+          <div class="order-summary">
+            <h2>Order Summary</h2>
+            <div id="checkout-items"></div>
+            <div class="cart-total">Total: <span id="checkout-total">$0.00</span></div>
+          </div>
+        </div>
+      </div>
+      <div id="order-confirmation" class="confirmation" style="display:none;">
+        <h2>✅ Order Placed!</h2>
+        <p>Thanks for shopping with us. A confirmation email has been sent.</p>
+        <button class="btn primary" data-goto="shop">Continue Shopping</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 ShopEasy. All rights reserved.</p>
+  </footer>
+
+  <script src="products.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
