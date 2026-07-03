@@ -17,6 +17,7 @@ pipeline {
         AWS_ACCESS_CRED  = 'AWS_ACCESS_KEY_ID' // Jenkins credential: Secret text
         AWS_SECRET_CRED  = 'AWS_SECRET_ACCESS_KEY' // Jenkins credential: Secret text
         EC2_USER         = 'ec2-user'
+        PATH             = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
 
     options {
